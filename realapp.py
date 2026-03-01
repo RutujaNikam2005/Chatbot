@@ -1,71 +1,59 @@
 import tkinter as tk
+from tkinter import scrolledtext
 import pandas as pd
 import difflib
 
-# Load CSV data
+# Load data
 data = pd.read_csv("qa.csv")
 
 # Create window
 root = tk.Tk()
-root.title("Chatbot")
+root.title("My Chatbot")
 root.geometry("400x500")
 
-# Chat display
-chat_area = tk.Text(root, height=20, width=50)
+# Chat area with scroll
+chat_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, width=50, height=20)
 chat_area.pack(pady=10)
 
 # Input box
 entry = tk.Entry(root, width=30)
 entry.pack(side=tk.LEFT, padx=10)
 
-# Send function
+# Chat function
 def send():
-    global data
-
     user_input = entry.get().lower()
-
+    
     if user_input == "":
         return
-
+    
     chat_area.insert(tk.END, "You: " + user_input + "\n")
 
     questions = data["question"].str.lower().tolist()
-
     matches = difflib.get_close_matches(user_input, questions, n=1, cutoff=0.5)
 
-    # If match found
     if matches:
         index = questions.index(matches[0])
         response = data["answer"][index]
-        chat_area.insert(tk.END, "Bot: " + response + "\n\n")
-
-    # If not found → learn
     else:
-        chat_area.insert(tk.END, "Bot: I don't know. Teach me!\n")
-        
-        new_answer = entry.get()  # you can modify if needed
-        
-        # Ask in terminal (simple version)
-        new_answer = input("Enter answer in terminal: ")
+        response = "I don't know. Teach me!"
 
-        if new_answer.lower() in ["exit", "show"]:
-            chat_area.insert(tk.END, "Bot: Not saved (reserved word)\n\n")
-        else:
-            new_data = pd.DataFrame({
-                "question": [user_input],
-                "answer": [new_answer]
-            })
+    chat_area.insert(tk.END, "Bot: " + response + "\n\n")
 
-            data = pd.concat([data, new_data], ignore_index=True)
-            data.to_csv("qa.csv", index=False)
-
-            chat_area.insert(tk.END, "Bot: Learned successfully!\n\n")
+    # Auto scroll
+    chat_area.yview(tk.END)
 
     entry.delete(0, tk.END)
 
-# Send button
+# Clear chat
+def clear_chat():
+    chat_area.delete("1.0", tk.END)
+
+# Buttons
 send_btn = tk.Button(root, text="Send", command=send)
 send_btn.pack(side=tk.LEFT)
+
+clear_btn = tk.Button(root, text="Clear", command=clear_chat)
+clear_btn.pack(side=tk.LEFT, padx=5)
 
 # Run app
 root.mainloop()
