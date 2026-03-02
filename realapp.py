@@ -6,134 +6,220 @@ data = pd.read_csv("qa.csv")
 
 root = tk.Tk()
 root.title("Smart Chatbot")
-root.geometry("400x600")
-root.resizable(False, False)
+root.resizable(True, True)
+root.configure(bg="#111b21")   # Dark background
+
+# --------- CENTER WINDOW ON SCREEN ---------
+window_width = 420
+window_height = 650
+
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+
+x = (screen_width // 2) - (window_width // 2)
+y = (screen_height // 2) - (window_height // 2)
+
+root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
 # --------- HEADER ---------
 
-header = tk.Frame(root, bg="#075e54", height=50)
+header = tk.Frame(root, bg="#202c33", height=55)
 header.pack(fill=tk.X)
 
 title = tk.Label(
     header,
-    text="Smart Chatbot",
-    bg="#075e54",
+    text="🤖 Smart Chatbot",
+    bg="#202c33",
     fg="white",
-    font=("Arial", 14, "bold")
+    font=("Segoe UI", 14, "bold")
 )
-title.pack(side=tk.LEFT, padx=10)
+title.pack(side=tk.LEFT, padx=15)
 
-
-# Three dots menu
 menu_btn = tk.Button(
     header,
     text="⋮",
-    bg="#075e54",
+    bg="#202c33",
     fg="white",
     border=0,
-    font=("Arial", 18, "bold")
+    font=("Segoe UI", 16, "bold"),
+    cursor="hand2"
 )
-menu_btn.pack(side=tk.RIGHT, padx=10)
+menu_btn.pack(side=tk.RIGHT, padx=15)
 
 # --------- CHAT AREA ---------
 
-chat_frame = tk.Frame(root)
+chat_frame = tk.Frame(root, bg="#111b21")
 chat_frame.pack(fill=tk.BOTH, expand=True)
 
-canvas = tk.Canvas(chat_frame, bg="#e5ddd5")
+canvas = tk.Canvas(chat_frame, bg="#111b21", highlightthickness=0)
 scrollbar = tk.Scrollbar(chat_frame, command=canvas.yview)
 
-scrollable_frame = tk.Frame(canvas, bg="#e5ddd5")
+scrollable_frame = tk.Frame(canvas, bg="#111b21")
 
 scrollable_frame.bind(
     "<Configure>",
     lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
 )
 
-canvas.create_window((0, 0), window=scrollable_frame, anchor="nw", width=380)
-canvas.configure(yscrollcommand=scrollbar.set)
+# ---------- RESIZABLE CANVAS WINDOW ----------
+window_id = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
 
+def resize_canvas(event):
+    canvas.itemconfig(window_id, width=event.width)
+
+canvas.bind("<Configure>", resize_canvas)
+
+canvas.configure(yscrollcommand=scrollbar.set)
 canvas.pack(side="left", fill="both", expand=True)
 scrollbar.pack(side="right", fill="y")
 
 # --------- MESSAGE FUNCTION ---------
 
 def add_message(message, sender):
-    msg_frame = tk.Frame(scrollable_frame, bg="#e5ddd5")
-    msg_frame.pack(fill=tk.X, pady=5, padx=5)
+    msg_frame = tk.Frame(scrollable_frame, bg="#111b21")
+    msg_frame.pack(fill=tk.X, pady=6, padx=10)
+
+    if sender == "user":
+        bubble_color = "#005c4b"
+        text_color = "white"
+        anchor_pos = "e"
+    else:
+        bubble_color = "#202c33"
+        text_color = "white"
+        anchor_pos = "w"
+
+    wrap_length = root.winfo_width() - 160  # Bubble width adapts
 
     bubble = tk.Label(
         msg_frame,
         text=message,
-        wraplength=250,
-        padx=10,
-        pady=6,
-        font=("Arial", 10)
+        wraplength=wrap_length,
+        justify="left",
+        bg=bubble_color,
+        fg=text_color,
+        font=("Segoe UI", 10),
+        padx=12,
+        pady=8
     )
 
-    if sender == "user":
-        bubble.config(bg="#dcf8c6")
-        bubble.pack(anchor="e")
-    else:
-        bubble.config(bg="white")
-        bubble.pack(anchor="w")
+    bubble.pack(anchor=anchor_pos)
 
     canvas.update_idletasks()
     canvas.yview_moveto(1.0)
+
+# Welcome Message
+add_message("Hello 👋 I'm SmartBot!\nHow can I help you today?", "bot")
 
 # --------- SEND FUNCTION ---------
 
 def send(event=None):
     global data
 
-    user_input = entry.get().lower()
+    user_input = entry.get().strip()
     if user_input == "":
         return
 
     add_message(user_input, "user")
+    entry.delete(0, tk.END)
 
     questions = data["question"].str.lower().tolist()
-    matches = difflib.get_close_matches(user_input, questions, n=1, cutoff=0.5)
+    matches = difflib.get_close_matches(user_input.lower(), questions, n=1, cutoff=0.5)
 
     if matches:
         index = questions.index(matches[0])
         response = data["answer"][index]
     else:
-        response = "I don't know yet."
+        response = "🤖 I don't know yet."
 
-    add_message(response, "bot")
+    root.after(500, lambda: add_message(response, "bot"))  # typing delay effect
 
-    entry.delete(0, tk.END)
+# --------- MODERN BOTTOM FRAME ---------
 
-# --------- BOTTOM BAR ---------
+bottom_frame = tk.Frame(root, bg="#202c33", height=75)
+bottom_frame.pack(fill="x", side="bottom")
 
-bottom_frame = tk.Frame(root, bg="#f0f0f0", height=70)
-bottom_frame.pack(fill=tk.X)
-bottom_frame.pack_propagate(False)  # keeps height fixed
-bottom_frame.config(bg="#202c33")
+chat_bar = tk.Frame(bottom_frame, bg="#2a3942", bd=0)
+chat_bar.pack(fill="x", padx=12, pady=12)
 
-# Attachment button
-attach_btn = tk.Button(bottom_frame, text="📎")
-attach_btn.pack(side=tk.LEFT, padx=5, pady=10)
+def open_attachment():
+    print("Attachment clicked")
 
-# Entry
-entry = tk.Entry(bottom_frame, font=("Arial", 14),bg="white",fg="black",insertbackground="black")
-entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+def open_camera():
+    print("Camera clicked")
 
-# Mic button
-mic_btn = tk.Button(bottom_frame, text="🎤")
-mic_btn.pack(side=tk.LEFT, padx=5)
-mic_btn.config(font=("Arial",10,"bold"))
+def start_voice():
+    print("Voice started")
 
-# Send button (pack FIRST)
-send_btn = tk.Button(bottom_frame, text="Send", width=7, command=send)
-send_btn.pack(side=tk.RIGHT, padx=8, pady=10)
-send_btn.config(font=("Arial",10,"bold"))
+# Attachment
+attach_btn = tk.Button(
+    chat_bar,
+    text="📎",
+    font=("Segoe UI Emoji", 14),
+    bg="#2a3942",
+    fg="white",
+    bd=0,
+    cursor="hand2",
+    activebackground="#36454f",
+    command=open_attachment
+)
+attach_btn.pack(side="left", padx=6)
 
-# Camera button (pack AFTER send)
-camera_btn = tk.Button(bottom_frame, text="📷", width=7)
-camera_btn.pack(side=tk.RIGHT, padx=5, pady=10)
-camera_btn.config(font=("Arial",10,"bold"))
+# Camera
+camera_btn = tk.Button(
+    chat_bar,
+    text="📷",
+    font=("Segoe UI Emoji", 14),
+    bg="#2a3942",
+    fg="white",
+    bd=0,
+    cursor="hand2",
+    activebackground="#36454f",
+    command=open_camera
+)
+camera_btn.pack(side="left", padx=6)
+
+# Entry Field
+entry = tk.Entry(
+    chat_bar,
+    font=("Segoe UI", 11),
+    bg="#111b21",
+    fg="white",
+    insertbackground="white",
+    bd=0,
+    relief="flat"
+)
+entry.pack(side="left", fill="x", expand=True, padx=10, ipady=6)
+
+# Mic
+mic_btn = tk.Button(
+    chat_bar,
+    text="🎤",
+    font=("Segoe UI Emoji", 14),
+    bg="#2a3942",
+    fg="white",
+    bd=0,
+    cursor="hand2",
+    activebackground="#36454f",
+    command=start_voice
+)
+mic_btn.pack(side="right", padx=6)
+
+# Send
+send_btn = tk.Button(
+    chat_bar,
+    text="➤",
+    font=("Segoe UI", 12, "bold"),
+    bg="#00a884",
+    fg="white",
+    activebackground="#019875",
+    activeforeground="white",
+    bd=0,
+    padx=14,
+    pady=6,
+    cursor="hand2",
+    command=send
+)
+send_btn.pack(side="right", padx=6)
 
 # ENTER key works
 root.bind("<Return>", send)
