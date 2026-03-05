@@ -3,6 +3,7 @@ import pandas as pd
 import difflib
 import datetime
 import os
+import json
 
 # -------- SAFE CSV LOAD --------
 if not os.path.exists("qa.csv"):
@@ -11,45 +12,49 @@ if not os.path.exists("qa.csv"):
 
 data = pd.read_csv("qa.csv")
 
+# -------- MEMORY FILE --------
+if not os.path.exists("memory.json"):
+    with open("memory.json", "w") as f:
+        json.dump({}, f)
+
+def load_memory():
+    with open("memory.json", "r") as f:
+        return json.load(f)
+
+def save_memory(memory):
+    with open("memory.json", "w") as f:
+        json.dump(memory, f)
+
+memory = load_memory()
+
+# -------- WINDOW --------
 root = tk.Tk()
 root.title("Smart Chatbot")
 root.resizable(True, True)
 root.configure(bg="#111b21")
 
-# -------- CENTER WINDOW --------
 window_width = 420
 window_height = 650
-
 screen_width = root.winfo_screenwidth()
 screen_height = root.winfo_screenheight()
-
 x = (screen_width // 2) - (window_width // 2)
 y = (screen_height // 2) - (window_height // 2)
-
 root.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
 # -------- HEADER --------
 header = tk.Frame(root, bg="#202c33", height=55)
 header.pack(fill=tk.X)
 
-title = tk.Label(
-    header,
-    text="🤖 Smart Chatbot",
-    bg="#202c33",
-    fg="white",
-    font=("Segoe UI", 14, "bold")
-)
+title = tk.Label(header, text="🤖 Smart Chatbot",
+                 bg="#202c33", fg="white",
+                 font=("Segoe UI", 14, "bold"))
 title.pack(side=tk.LEFT, padx=15)
 
-menu_btn = tk.Button(
-    header,
-    text="⋮",
-    bg="#202c33",
-    fg="white",
-    border=0,
-    font=("Segoe UI", 16, "bold"),
-    cursor="hand2"
-)
+menu_btn = tk.Button(header, text="⋮",
+                     bg="#202c33", fg="white",
+                     border=0,
+                     font=("Segoe UI", 16, "bold"),
+                     cursor="hand2")
 menu_btn.pack(side=tk.RIGHT, padx=15)
 
 # -------- CHAT AREA --------
@@ -60,7 +65,6 @@ canvas = tk.Canvas(chat_frame, bg="#111b21", highlightthickness=0)
 scrollbar = tk.Scrollbar(chat_frame, command=canvas.yview)
 
 scrollable_frame = tk.Frame(canvas, bg="#111b21")
-
 scrollable_frame.bind(
     "<Configure>",
     lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
@@ -82,19 +86,13 @@ def add_message(message, sender):
     msg_frame = tk.Frame(scrollable_frame, bg="#111b21")
     msg_frame.pack(fill=tk.X, pady=6, padx=10)
 
-    if sender == "user":
-        bubble_color = "#005c4b"
-        anchor_pos = "e"
-    else:
-        bubble_color = "#202c33"
-        anchor_pos = "w"
-
-    wrap_length = root.winfo_width() - 160
+    bubble_color = "#005c4b" if sender == "user" else "#202c33"
+    anchor_pos = "e" if sender == "user" else "w"
 
     bubble = tk.Label(
         msg_frame,
         text=message,
-        wraplength=wrap_length,
+        wraplength=root.winfo_width() - 160,
         justify="left",
         bg=bubble_color,
         fg="white",
@@ -107,33 +105,38 @@ def add_message(message, sender):
     canvas.update_idletasks()
     canvas.yview_moveto(1.0)
 
-# Welcome Message
+# Welcome
 add_message("Hello 👋 I'm SmartBot!\nHow can I help you today?", "bot")
 
-# -------- SMART COMMANDS --------
-def handle_commands(text):
-    if text == "/time":
-        return f"⏰ Current Time: {datetime.datetime.now().strftime('%H:%M:%S')}"
-    elif text == "/date":
-        return f"📅 Today's Date: {datetime.date.today()}"
-    elif text == "/help":
-        return "Available Commands:\n/time\n/date\n/clear\n/help"
-    elif text == "/clear":
-        for widget in scrollable_frame.winfo_children():
-            widget.destroy()
-        return "Chat cleared ✅"
-    return None
+# -------- MEMORY HANDLER --------
+def handle_memory(user_input):
+    global memory
+    text = user_input.lower()
 
-# -------- MOOD MODE (Day 26) --------
-def detect_mood(text):
-    text = text.lower()
+    if "my name is" in text:
+        name = user_input.split("is")[-1].strip()
+        memory["name"] = name
+        save_memory(memory)
+        return f"Nice to meet you, {name} 😊"
 
-    if any(word in text for word in ["sad", "upset", "depressed", "cry"]):
-        return "😔 I'm here for you. Things will get better."
-    elif any(word in text for word in ["happy", "excited", "great"]):
-        return "😊 That's amazing! Keep smiling!"
-    elif any(word in text for word in ["angry", "mad", "irritated"]):
-        return "😌 Take a deep breath. Stay calm."
+    if "i like" in text:
+        like = user_input.split("like")[-1].strip()
+        memory["likes"] = like
+        save_memory(memory)
+        return f"Got it! You like {like} 👍"
+
+    if "remember that" in text:
+        fact = user_input.replace("remember that", "").strip()
+        memory["fact"] = fact
+        save_memory(memory)
+        return "I'll remember that 💾"
+
+    if "what is my name" in text:
+        return f"Your name is {memory.get('name', 'I don’t know yet.')}"
+
+    if "what do i like" in text:
+        return f"You like {memory.get('likes', 'I don’t know yet.')}"
+
     return None
 
 # -------- SEND FUNCTION --------
@@ -147,19 +150,13 @@ def send(event=None):
     add_message(user_input, "user")
     entry.delete(0, tk.END)
 
-    # Smart Commands
-    command_response = handle_commands(user_input.lower())
-    if command_response:
-        root.after(400, lambda: add_message(command_response, "bot"))
+    # Memory Feature
+    memory_response = handle_memory(user_input)
+    if memory_response:
+        root.after(400, lambda: add_message(memory_response, "bot"))
         return
 
-    # Mood Detection
-    mood_response = detect_mood(user_input)
-    if mood_response:
-        root.after(400, lambda: add_message(mood_response, "bot"))
-        return
-
-    # Normal QA
+    # QA System
     questions = data["question"].astype(str).str.lower().tolist()
     matches = difflib.get_close_matches(user_input.lower(), questions, n=1, cutoff=0.5)
 
